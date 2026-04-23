@@ -1,6 +1,6 @@
 from aiogram import Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
@@ -21,123 +21,69 @@ def register_handlers(dp: Dispatcher, interview_manager: InterviewManager):
     async def cmd_start(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(
-            "👋 Привет! Я ExamMind: Pro — твой ИИ-тренер для подготовки к IT-собеседованиям.\n\n"
-            "Я помогу прокачать теорию, алгоритмы и soft skills.\n"
-            "Готов начать? Нажми кнопку ниже 👇",
+            "👋 Привет! Я ExamMind: Pro — твой ИИ-тренер.\n"
+            "Я генерирую вопросы в реальном времени с помощью LLM.",
             reply_markup=get_main_keyboard()
         )
 
     @dp.message(lambda message: message.text == "🚀 Начать собеседование")
     async def start_interview(message: Message, state: FSMContext):
         await state.set_state(InterviewState.choosing_direction)
-        await message.answer(
-            "Выбери направление, по которому хочешь пройти собеседование:",
-            reply_markup=get_direction_keyboard()
-        )
+        await message.answer("Выбери направление:", reply_markup=get_direction_keyboard())
 
     @dp.callback_query(lambda c: c.data.startswith("direction_"))
     async def choose_direction(callback: CallbackQuery, state: FSMContext):
         direction = callback.data.replace("direction_", "")
         await state.update_data(direction=direction)
         await state.set_state(InterviewState.choosing_level)
-        await callback.message.edit_text(
-            f"Отлично! Ты выбрал {direction}.\nТеперь выбери уровень сложности:",
-            reply_markup=get_level_keyboard()
-        )
-        await callback.answer()
+        await callback.message.edit_text(f"Выбрано: {direction}. Теперь уровень:", reply_markup=get_level_keyboard())
 
     @dp.callback_query(lambda c: c.data.startswith("level_"))
     async def choose_level(callback: CallbackQuery, state: FSMContext):
         level = callback.data.replace("level_", "")
         user_data = await state.get_data()
         direction = user_data.get("direction")
-
         user_id = callback.from_user.id
+
         interview_manager.start_interview(user_id, direction, level)
-
         await state.update_data(level=level)
-        await callback.message.edit_text(
-            f"✅ Готово!\n\n"
-            f"Направление: {direction}\n"
-            f"Уровень: {level}\n\n"
-            "Начинаем собеседование...\n"
-            "Первый вопрос по теории:"
-        )
 
-        # Получаем первый теоретический вопрос
-        question = interview_manager.get_next_theory_question(user_id)
+        sent_msg = await callback.message.edit_text("🤖 ИИ генерирует первый вопрос по теории...")
+
+        question = await interview_manager.get_next_question(user_id, "theory")
         await state.set_state(InterviewState.theory_question)
-        await callback.message.answer(f"📖 {question}")
-        await callback.answer()
+        await sent_msg.edit_text(f"📖 Вопрос по теории:\n\n{question}")
 
     @dp.message(InterviewState.theory_question)
     async def handle_theory_answer(message: Message, state: FSMContext):
         user_id = message.from_user.id
-        answer = message.text
+        wait_msg = await message.answer("⏳ Оцениваю ваш ответ...")
 
-        score, feedback = interview_manager.evaluate_theory_answer(user_id, answer)
+        score, feedback, correct = await interview_manager.process_answer(user_id, message.text, "theory")
+        await wait_msg.edit_text(f"📊 Оценка: {score}/10\n\n💡 Фидбек: {feedback}\n\n✅ Идеал: {correct}")
 
-        await message.answer(f"📊 Оценка: {score}/10\n\n{feedback}")
-
-        next_question = interview_manager.get_next_coding_question(user_id)
-        if next_question:
-            await state.set_state(InterviewState.coding_question)
-            await message.answer(f"💻 Алгоритмическая задача:\n\n{next_question}\n\nНапиши решение кодом.")
-        else:
-            await finish_interview(message, state, user_id)
+        next_q = await interview_manager.get_next_question(user_id, "coding")
+        await state.set_state(InterviewState.coding_question)
+        await message.answer(f"💻 Задача на кодинг:\n\n{next_q}")
 
     @dp.message(InterviewState.coding_question)
     async def handle_coding_answer(message: Message, state: FSMContext):
         user_id = message.from_user.id
-        code = message.text
+        wait_msg = await message.answer("🧪 Анализирую код...")
 
-        score, feedback = interview_manager.evaluate_code(user_id, code)
+        score, feedback, correct = await interview_manager.process_answer(user_id, message.text,
+                                                                          "coding_skills")
+        await wait_msg.edit_text(f"📊 Оценка кода: {score}/10\n\n{feedback}")
 
-        await message.answer(f"📊 Оценка кода: {score}/10\n\n{feedback}")
-
-        # Переходим к soft skills
-        next_question = interview_manager.get_next_soft_question(user_id)
-        if next_question:
-            await state.set_state(InterviewState.soft_skills_question)
-            await message.answer(f"🗣 Вопрос на soft skills:\n\n{next_question}")
-        else:
-            await finish_interview(message, state, user_id)
+        next_q = await interview_manager.get_next_question(user_id, "soft_skills")
+        await state.set_state(InterviewState.soft_skills_question)
+        await message.answer(f"🗣 Вопрос на Soft Skills:\n\n{next_q}")
 
     @dp.message(InterviewState.soft_skills_question)
     async def handle_soft_answer(message: Message, state: FSMContext):
         user_id = message.from_user.id
-        answer = message.text
+        await interview_manager.process_answer(user_id, message.text, "soft_skills")
 
-        score, feedback = interview_manager.evaluate_soft_answer(user_id, answer)
-        await message.answer(f"📊 Оценка: {score}/10\n\n{feedback}")
-
-        # Завершаем собеседование
-        await finish_interview(message, state, user_id)
-
-    async def finish_interview(message: Message, state: FSMContext, user_id: int):
         report = interview_manager.get_final_report(user_id)
-        await message.answer(
-            f"🎉 Собеседование завершено!\n\n"
-            f"📈 Итоговый отчёт:\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"{report}\n"
-            f"━━━━━━━━━━━━━━━━━━\n\n"
-            f"Хочешь пройти ещё раз? Нажми /start",
-            reply_markup=get_main_keyboard()
-        )
+        await message.answer(report, reply_markup=get_main_keyboard())
         await state.clear()
-
-    @dp.message(Command("help"))
-    async def cmd_help(message: Message):
-        await message.answer(
-            "📚 Команды:\n"
-            "/start — начать работу\n"
-            "/help — справка\n\n"
-            "Во время собеседования просто отвечай на вопросы.\n"
-            "Код можно отправлять обычным текстом."
-        )
-
-    @dp.message(Command("cancel"))
-    async def cmd_cancel(message: Message, state: FSMContext):
-        await state.clear()
-        await message.answer("❌ Собеседование отменено. Нажми /start, чтобы начать заново.")

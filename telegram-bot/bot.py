@@ -3,6 +3,7 @@ import logging
 import os
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
 
 from handlers import register_handlers
 from interview import InterviewManager
@@ -12,7 +13,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=BOT_TOKEN)
+session = AiohttpSession(proxy='http://20.204.228.118:8080')
+bot = Bot(token=BOT_TOKEN, session=session)
 dp = Dispatcher()
 
 interview_manager = InterviewManager()
@@ -20,8 +22,11 @@ interview_manager = InterviewManager()
 register_handlers(dp, interview_manager)
 
 async def main():
-    logging.info("Бот ExamMind: Pro запущен!")
-    await dp.start_polling(bot)
+    logging.info(f"Бот ExamMind: Pro запущен!")
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
