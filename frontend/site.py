@@ -165,11 +165,9 @@ else:
         ### О разработчике
         Привет! Я создатель **ExamMind: Pro**. Моя цель — сделать подготовку к интервью доступной и эффективной с помощью ИИ.
 
-        - **Telegram:** [@your_handle]
-        - **GitHub:** [github.com/yourprofile]
-        - **Email:** dev@exammind.ai
-
-        *Буду рад фидбеку и предложениям по сотрудничеству!*
+        - **Telegram:** [@Djmix22]
+        - **GitHub:** [github.com/Timoface]
+        
         """)
 
     elif page == "Главная":

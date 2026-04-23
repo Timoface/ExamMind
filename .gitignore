@@ -1,0 +1,33 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# --- Конфигурация и секреты ---
+.env
+*.local
+
+# --- Базы данных (SQLite) ---
+*.db
+*.sqlite3
+# Исключаем конкретно твою папку с БД, если хочешь хранить её только локально
+data/users.db
+
+# --- Streamlit ---
+.streamlit/
+static/
+
+# --- OS / IDE ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Логи ---
+*.log
+backend.log
+bot.log
