@@ -10,10 +10,11 @@ from interview import InterviewManager
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+PROXY = os.getenv("PROXY")
 
 logging.basicConfig(level=logging.INFO)
 
-session = AiohttpSession(proxy='http://20.204.228.118:8080')
+session = AiohttpSession(proxy=PROXY)
 bot = Bot(token=BOT_TOKEN, session=session)
 dp = Dispatcher()
 

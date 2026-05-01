@@ -7,14 +7,13 @@ venv/
 ENV/
 env/
 
-# --- Конфигурация и секреты ---
+# --- Configuration ---
 .env
 *.local
 
-# --- Базы данных (SQLite) ---
+# --- Database (SQLite) ---
 *.db
 *.sqlite3
-# Исключаем конкретно твою папку с БД, если хочешь хранить её только локально
 data/users.db
 
 # --- Streamlit ---
@@ -27,7 +26,7 @@ static/
 .DS_Store
 Thumbs.db
 
-# --- Логи ---
+# --- Logs ---
 *.log
 backend.log
 bot.log
